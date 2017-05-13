@@ -1,1 +1,1 @@
-web: gunicorn runserver:server --log-file -
+web: gunicorn server:app --log-file isoi-server.log
