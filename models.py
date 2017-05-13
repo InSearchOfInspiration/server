@@ -57,7 +57,7 @@ class EventCategory(MongoModel):
 
     class Meta:
         indexes = [
-            IndexModel([('name', ASCENDING)], unique=True, sparse=True),
+            IndexModel([('name', ASCENDING), ('user', ASCENDING)], unique=True, sparse=True),
         ]
 
 

@@ -57,7 +57,7 @@ def login():
             'message': 'User has already logged in'
         }, 400)
     data = request.get_json(force=True)
-    if type(data) == type(''):
+    if isinstance(data, str):
         data = json.loads(data)
     username = data.get('username', None)
     password = data.get('password', None)
@@ -79,7 +79,7 @@ def login():
 @utils.already_authenticated()
 def registry():
     data = request.get_json(force=True)
-    if type(data) == type(''):
+    if isinstance(data, str):
         data = json.loads(data)
     schema = UserSchema(data)
     try:

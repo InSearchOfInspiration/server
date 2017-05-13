@@ -2,6 +2,7 @@ from datetime import timedelta, datetime
 
 from flask import Flask
 from flask_jwt import JWT
+from flask_cors import CORS
 
 app = Flask(__name__)
 
@@ -12,6 +13,8 @@ app.config['JWT_SECRET_KEY'] = app.config['SECRET_KEY']
 
 from api_v1.auth import *
 from api_v1.views import *
+
+CORS(app)
 
 jwt = JWT(app, authenticate, identity)
 jwt.jwt_payload_callback = jwt_payload_callback

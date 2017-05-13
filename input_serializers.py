@@ -7,7 +7,7 @@ from marshmallow import Schema, fields, validate
 from pytz import UTC
 
 from exceptions import InvalidDataException
-from models import User, Event, SOURCES
+from models import User, Event, SOURCES, EventCategory
 from utils import get_random_color
 from validators import ObjectIdSchemaValidator
 
@@ -68,7 +68,9 @@ class EventSchema(Schema):
             raise InvalidDataException(message='Invalid event input fields', fields=self.errors)
         if event is None:
             event = Event()
+        # TODO add check on correct category (it must exist and be either current_user's or default (created on server)
         event.category = self.data.get('category')
+
         event.name = self.data.get('name')
         event.start_date = self.data.get('start_date')
         # if not event.start_date.tzinfo:
@@ -86,3 +88,23 @@ class EventSchema(Schema):
         event.color = self.data.get('color')
         event.save()
         return event
+
+
+def save_category(data, user, category=None):
+    name = data.get('name', None)
+    if not name:
+        raise InvalidDataException(message='Invalid event category field format',
+                                   fields={
+                                       'name': ['Missing or empty field']
+                                   })
+    if not category:
+        category = EventCategory()
+    category.name = name
+    category.user = user.id
+    try:
+        category.save()
+    except pymongo.errors.DuplicateKeyError:
+        raise InvalidDataException(message='Invalid event category input data', fields={
+            'name': ['Must be unique for user']
+        })
+    return category

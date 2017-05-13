@@ -3,12 +3,13 @@ import json
 from bson import ObjectId
 from flask import Response
 from flask import request
+from flask_cors import cross_origin
 from flask_jwt import jwt_required, current_identity
 from pymodm.context_managers import no_auto_dereference
 
 from config import JSON_MIME
 from exceptions import InvalidDataException
-from input_serializers import EventSchema, CategorySchema, UserSchema
+from input_serializers import EventSchema, CategorySchema, UserSchema, save_category
 from models import Event, EventCategory
 from output_serializers import UserOutputSchema
 
@@ -26,7 +27,7 @@ def process_my_info():
         return Response(json.dumps(result), mimetype=JSON_MIME)
     else:
         data = request.get_json(force=True)
-        if type(data) == type(''):
+        if isinstance(data, str):
             data = json.loads(data)
         schema = UserSchema(data)
         try:
@@ -43,7 +44,7 @@ def process_my_info():
 @jwt_required()
 def add_new_event():
     data = request.get_json(force=True)
-    if type(data) == type(''):
+    if isinstance(data, str):
         data = json.loads(data)
     schema = EventSchema(data)
     try:
@@ -96,7 +97,7 @@ def process_single_event(event_id):
             return Response(json.dumps(result), mimetype=JSON_MIME)
         else:
             data = request.get_json(force=True)
-            if type(data) == type(''):
+            if isinstance(data, str):
                 data = json.loads(data)
             schema = EventSchema(data)
             schema.save(current_identity, event)
@@ -116,20 +117,15 @@ def process_single_event(event_id):
 @jwt_required()
 def add_new_category():
     data = request.get_json(force=True)
-    if type(data) == type(''):
+    if isinstance(data, str):
         data = json.loads(data)
-    name = data.get('name', None)
-    if not name:
+    try:
+        save_category(data, current_identity)
+    except InvalidDataException as ex:
         return json_abort({
-            'message': 'Invalid event category field format',
-            'fields': {
-                'name': ['Missing or empty field']
-            }
+            'message': ex.message,
+            'fields': ex.fields
         }, 400)
-    category = EventCategory()
-    category.name = name
-    category.user = current_identity.id
-    category.save()
     return Response("Success")
 
 
@@ -144,3 +140,43 @@ def get_user_categories():
     with no_auto_dereference(EventCategory):
         result = CategorySchema().dump(categories, many=True).data
         return Response(json.dumps(result), mimetype=JSON_MIME)
+
+
+@app.route('/categories/<string:category_id>/', methods=['GET', 'PUT', 'DELETE'])
+@jwt_required()
+def process_specific_category(category_id):
+    if not ObjectId.is_valid(category_id):
+        return json_abort({
+            'message': 'Invalid category id'
+        }, 400)
+    user = current_identity
+    filter_query = {'_id': ObjectId(category_id)}
+    not_found_message = 'No such category'
+    if 'GET' not in request.method:
+        filter_query.update({
+            'user': user.id
+        })
+        not_found_message = 'This user did not create this category to update/delete'
+
+    try:
+        category = EventCategory.objects.get(filter_query)
+        if 'GET' in request.method:
+            result = CategorySchema().dump(category).data
+            return Response(json.dumps(result), mimetype=JSON_MIME)
+        elif 'PUT' in request.method:
+            data = request.get_json(force=True)
+            if isinstance(data, str):
+                data = json.loads(data)
+            save_category(data, user, category)
+        else:
+            category.delete()
+        return Response("Success")
+    except EventCategory.DoesNotExist:
+        return json_abort({
+            'message': not_found_message
+        }, 400)
+    except InvalidDataException as ex:
+        return json_abort({
+            'message': ex.message,
+            'fields': ex.fields
+        }, 400)
