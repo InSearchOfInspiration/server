@@ -7,24 +7,11 @@ from pymongo import IndexModel, ASCENDING
 from werkzeug.security import safe_str_cmp
 
 from config import DB_URL
-from db_validators import regex_validator
+from validators import db_regex_validator
 
 
 print("URL:", DB_URL)
 connect(DB_URL)
-
-
-class EventCategory(MongoModel):
-    name = fields.CharField(required=True)
-
-    @property
-    def id(self):
-        return self._id
-
-    class Meta:
-        indexes = [
-            IndexModel([('name', ASCENDING)], unique=True, sparse=True),
-        ]
 
 SOURCES = [
     (-1, 'unknown'),
@@ -35,7 +22,7 @@ SOURCES = [
 
 class User(MongoModel):
     name = fields.CharField(required=True, blank=False)
-    username = fields.CharField(validators=[regex_validator(r'^[a-z0-9]+$')])
+    username = fields.CharField(validators=[db_regex_validator(r'^[a-z0-9]+$')])
     password_hash = fields.CharField()
     target_score = fields.DictField(blank=True)  # { usefulness, pleasure, fatigue }
 
@@ -60,8 +47,22 @@ class User(MongoModel):
         ]
 
 
+class EventCategory(MongoModel):
+    name = fields.CharField(required=True)
+    user = fields.ReferenceField(User, blank=True)
+
+    @property
+    def id(self):
+        return self._id
+
+    class Meta:
+        indexes = [
+            IndexModel([('name', ASCENDING)], unique=True, sparse=True),
+        ]
+
+
 class Event(MongoModel):
-    category = fields.CharField(blank=True)
+    category = fields.DictField(blank=True)  # {id, name}
     name = fields.CharField(blank=False)
     start_date = fields.DateTimeField()
     finish_date = fields.DateTimeField()

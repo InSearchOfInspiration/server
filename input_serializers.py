@@ -2,12 +2,14 @@ import re
 from datetime import datetime
 
 import pymongo
+from bson import ObjectId
 from marshmallow import Schema, fields, validate
 from pytz import UTC
 
 from exceptions import InvalidDataException
 from models import User, Event, SOURCES
 from utils import get_random_color
+from validators import ObjectIdSchemaValidator
 
 
 class UserSchema(Schema):
@@ -19,10 +21,11 @@ class UserSchema(Schema):
         super(UserSchema, self).__init__(**kwargs)
         self.data, self.errors = self.load(data)
 
-    def save(self):
+    def save(self, user=None):
         if self.errors and len(self.errors) > 0:
             raise InvalidDataException(message='Invalid user input fields', fields=self.errors)
-        user = User()
+        if not user:
+            user = User()
         user.name = self.data.get('name')
         user.username = self.data.get('username')
         user.set_password(self.data.get('password'))
@@ -41,8 +44,13 @@ class ScoreSchema(Schema):
     fatigue = fields.Integer(required=True, validate=[validate.Range(min=1, max=10)])
 
 
+class CategorySchema(Schema):
+    id = fields.String(required=True, validate=[ObjectIdSchemaValidator()])
+    name = fields.String(required=True)
+
+
 class EventSchema(Schema):
-    category = fields.String(required=False)
+    category = fields.Nested(CategorySchema, required=False)
     name = fields.String(required=True)
     start_date = fields.DateTime(required=True)
     finish_date = fields.DateTime(required=True)
