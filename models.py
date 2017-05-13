@@ -1,7 +1,10 @@
+import hashlib
+
 from pymodm import MongoModel
 from pymodm import connect
 from pymodm import fields
 from pymongo import IndexModel, ASCENDING
+from werkzeug.security import safe_str_cmp
 
 from config import DB_URL
 from db_validators import regex_validator
@@ -31,6 +34,21 @@ class User(MongoModel):
     username = fields.CharField(validators=[regex_validator(r'\w+')])
     password_hash = fields.CharField()
     target_score = fields.DictField()  # { usefulness, pleasure, fatigue }
+
+    def _get_password_hash(self, password: str) -> str:
+        m = hashlib.sha256()
+        m.update(password.encode('utf-8'))
+        return m.digest().hex()
+
+    def set_password(self, password: str):
+        self.password_hash = self._get_password_hash(password)
+
+    def check_password(self, password: str) -> bool:
+        return safe_str_cmp(self.password_hash, self._get_password_hash(password))
+
+    @property
+    def id(self):
+        return self._id
 
     class Meta:
         indexes = [
