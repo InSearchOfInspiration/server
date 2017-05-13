@@ -17,6 +17,10 @@ connect(DB_URL)
 class EventCategory(MongoModel):
     name = fields.CharField(required=True)
 
+    @property
+    def id(self):
+        return self._id
+
     class Meta:
         indexes = [
             IndexModel([('name', ASCENDING)], unique=True, sparse=True),
@@ -31,9 +35,9 @@ SOURCES = [
 
 class User(MongoModel):
     name = fields.CharField(required=True, blank=False)
-    username = fields.CharField(validators=[regex_validator(r'\w+')])
+    username = fields.CharField(validators=[regex_validator(r'^[a-z0-9]+$')])
     password_hash = fields.CharField()
-    target_score = fields.DictField()  # { usefulness, pleasure, fatigue }
+    target_score = fields.DictField(blank=True)  # { usefulness, pleasure, fatigue }
 
     def _get_password_hash(self, password: str) -> str:
         m = hashlib.sha256()
@@ -63,5 +67,9 @@ class Event(MongoModel):
     finish_date = fields.DateTimeField()
     source_type = fields.IntegerField(choices=SOURCES)
     result_score = fields.DictField()  # { usefulness, pleasure, fatigue }
-    user = fields.ReferenceField(User)
+    user = fields.ReferenceField(User, on_delete=fields.ReferenceField.CASCADE)
     color = fields.CharField()
+
+    @property
+    def id(self):
+        return self._id

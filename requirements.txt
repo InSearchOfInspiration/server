@@ -6,10 +6,12 @@ gunicorn==19.7.1
 itsdangerous==0.24
 Jinja2==2.9.6
 MarkupSafe==1.0
+marshmallow==2.13.5
 packaging==16.8
 PyJWT==1.4.2
 pymodm==0.4.0
 pymongo==3.4.0
 pyparsing==2.2.0
+pytz==2017.2
 six==1.10.0
 Werkzeug==0.12.1

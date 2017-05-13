@@ -1,9 +1,10 @@
 import json
+import random
 from functools import wraps
 
 from flask import Response
-from flask_jwt import current_identity
 from werkzeug.exceptions import abort
+from flask_jwt import current_identity
 
 from config import JSON_MIME
 
@@ -28,3 +29,11 @@ def already_authenticated():
 def get_jwt():
     from flask import current_app
     return current_app.extensions['jwt']
+
+
+def get_random_color():
+    red = random.randint(0, 255)
+    green = random.randint(0, 255)
+    blue = random.randint(0, 255)
+
+    return '#{0:02x}{1:02x}{2:02x}'.format(red, green, blue)
