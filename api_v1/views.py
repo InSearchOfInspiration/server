@@ -16,7 +16,7 @@ from models import Event, EventCategory, Location
 from output_serializers import UserOutputSchema
 
 from server import app
-from utils import json_abort, place_for_location
+from utils import json_abort, place_for_location, get_brute_schedule
 
 
 # CORS(app, max_age=3628800, origins='*', supports_credentials=True)
@@ -86,7 +86,7 @@ def get_user_events():
         return Response(json.dumps(result), mimetype=JSON_MIME)
 
 
-@app.route('/events/<string:event_id>/', methods=['PUT', 'GET'], strict_slashes=False)
+@app.route('/events/<string:event_id>/', methods=['PUT', 'GET', 'DELETE'], strict_slashes=False)
 @jwt_required()
 def process_single_event(event_id):
     if not ObjectId.is_valid(event_id):
@@ -99,12 +99,15 @@ def process_single_event(event_id):
         if 'GET' in request.method:
             result = get_event_dict(event)
             return Response(json.dumps(result), mimetype=JSON_MIME)
-        else:
+        elif 'PUT' in request.method:
             data = request.get_json(force=True)
             if isinstance(data, str):
                 data = json.loads(data)
             schema = EventSchema(data)
             schema.save(current_identity, event)
+            return Response("Success")
+        else:
+            event.delete()
             return Response("Success")
     except Event.DoesNotExist:
         return json_abort({
@@ -238,3 +241,12 @@ def get_my_locations():
             }
             result.append(item)
         return Response(json.dumps(result), mimetype=JSON_MIME)
+
+
+@app.route('/me/suggested_schedule/')
+@jwt_required()
+def get_my_suggested_schedule():
+    user = current_identity
+    suggested_schedule = get_brute_schedule(user)
+    result = EventSchema().dump(suggested_schedule, many=True).data
+    return Response(json.dumps(result), mimetype=JSON_MIME)
