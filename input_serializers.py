@@ -49,14 +49,20 @@ class CategorySchema(Schema):
     name = fields.String(required=True)
 
 
+class EventLocationSchema(Schema):
+    longitude = fields.Float(required=True)
+    latitude = fields.Float(required=True)
+
+
 class EventSchema(Schema):
     category = fields.Nested(CategorySchema, required=False)
     name = fields.String(required=True)
     start_date = fields.DateTime(required=True)
+    location = fields.Nested(EventLocationSchema, required=False)
     finish_date = fields.DateTime(required=True)
-    result_score = fields.Nested(ScoreSchema, required=True)
+    result_score = fields.Nested(ScoreSchema, required=False)
     source_type = fields.Integer(required=True, validate=[validate.Range(min=-1, max=len(SOURCES) - 2)])
-    color = fields.String(required=True)
+    color = fields.String(required=False)
 
     def __init__(self, data=None, **kwargs):
         super(EventSchema, self).__init__(**kwargs)
@@ -84,6 +90,7 @@ class EventSchema(Schema):
         #     event.finish_date = event.finish_date.astimezone(UTC)
         event.result_score = self.data.get('result_score')
         event.source_type = self.data.get('source_type')
+        event.location = self.data.get('location')
         event.user = user.id
         event.color = self.data.get('color')
         event.save()
@@ -108,3 +115,8 @@ def save_category(data, user, category=None):
             'name': ['Must be unique for user']
         })
     return category
+
+
+class LocationSchema(Schema):
+    longitude = fields.Float(load_from='long', required=True)
+    latitude = fields.Float(load_from='lat', required=True)

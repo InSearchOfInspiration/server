@@ -66,10 +66,22 @@ class Event(MongoModel):
     name = fields.CharField(blank=False)
     start_date = fields.DateTimeField()
     finish_date = fields.DateTimeField()
+    location = fields.DictField(blank=True)  # { longitude, latitude }
     source_type = fields.IntegerField(choices=SOURCES)
-    result_score = fields.DictField()  # { usefulness, pleasure, fatigue }
+    result_score = fields.DictField(blank=True)  # { usefulness, pleasure, fatigue }
     user = fields.ReferenceField(User, on_delete=fields.ReferenceField.CASCADE)
-    color = fields.CharField()
+    color = fields.CharField(blank=True)
+
+    @property
+    def id(self):
+        return self._id
+
+
+class Location(MongoModel):
+    longitude = fields.FloatField(required=True)
+    latitude = fields.FloatField(required=True)
+    user = fields.ReferenceField(User, required=True)
+    date = fields.DateTimeField(required=True)
 
     @property
     def id(self):

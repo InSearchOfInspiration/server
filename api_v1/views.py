@@ -1,21 +1,25 @@
 import json
+from datetime import datetime
 
 from bson import ObjectId
 from flask import Response
 from flask import request
+from flask_cors import CORS
 from flask_cors import cross_origin
 from flask_jwt import jwt_required, current_identity
 from pymodm.context_managers import no_auto_dereference
 
 from config import JSON_MIME
 from exceptions import InvalidDataException
-from input_serializers import EventSchema, CategorySchema, UserSchema, save_category
-from models import Event, EventCategory
+from input_serializers import EventSchema, CategorySchema, UserSchema, save_category, LocationSchema
+from models import Event, EventCategory, Location
 from output_serializers import UserOutputSchema
 
 from server import app
-from utils import json_abort
+from utils import json_abort, place_for_location
 
+
+# CORS(app, max_age=3628800, origins='*', supports_credentials=True)
 
 @app.route('/me/', methods=['GET', 'PUT'], strict_slashes=False)
 @jwt_required()
@@ -120,13 +124,14 @@ def add_new_category():
     if isinstance(data, str):
         data = json.loads(data)
     try:
-        save_category(data, current_identity)
+        category = save_category(data, current_identity)
+        return Response(json.dumps({'id': str(category.id)}))
     except InvalidDataException as ex:
+        print(ex.message, ex.fields)
         return json_abort({
             'message': ex.message,
             'fields': ex.fields
         }, 400)
-    return Response("Success")
 
 
 @app.route('/categories/')
@@ -142,7 +147,7 @@ def get_user_categories():
         return Response(json.dumps(result), mimetype=JSON_MIME)
 
 
-@app.route('/categories/<string:category_id>/', methods=['GET', 'PUT', 'DELETE'])
+@app.route('/categories/id/<string:category_id>/', methods=['GET', 'PUT', 'DELETE'])
 @jwt_required()
 def process_specific_category(category_id):
     if not ObjectId.is_valid(category_id):
@@ -180,3 +185,56 @@ def process_specific_category(category_id):
             'message': ex.message,
             'fields': ex.fields
         }, 400)
+
+
+@app.route('/categories/name/<string:name>/')
+@jwt_required()
+def get_category_by_name(name):
+    try:
+        category = EventCategory.objects.get({'name': name, 'user': current_identity.id})
+        result = CategorySchema().dump(category).data
+        return Response(json.dumps(result), mimetype=JSON_MIME)
+    except EventCategory.DoesNotExist:
+        return json_abort({
+            'message': 'User has not category with this name'
+        }, 400)
+
+
+# @app.route('/me/locations/', methods=['PUT', ], strict_slashes=False)
+@app.route('/coordinates/', methods=['PUT', ], strict_slashes=False)
+@jwt_required()
+def add_new_location_for_user():
+    data = request.get_json(force=True)
+    if isinstance(data, str):
+        data = json.loads(data)
+    schema = LocationSchema()
+    data, errors = schema.load(data)
+    longitude = data.get('longitude')
+    latitude = data.get('latitude')
+    date = datetime.utcnow()
+    location = Location()
+    location.longitude = longitude
+    location.latitude = latitude
+    location.date = date
+    location.user = current_identity.id
+    # place_for_location(location)
+    location.save()
+    return Response("Success")
+
+
+@app.route('/me/locations/')
+@jwt_required()
+def get_my_locations():
+    locations = Location.objects.raw({
+        'user': current_identity.id
+    }).all()
+    with no_auto_dereference(Location):
+        result = []
+        for location in locations:
+            item = {
+                'longitude': location.longitude,
+                'latitude': location.latitude,
+                'date': str(location.date)
+            }
+            result.append(item)
+        return Response(json.dumps(result), mimetype=JSON_MIME)

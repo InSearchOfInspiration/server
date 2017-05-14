@@ -83,8 +83,10 @@ def registry():
         data = json.loads(data)
     schema = UserSchema(data)
     try:
-        schema.save()
-        return Response("Success")
+        user = schema.save()
+        jwt = utils.get_jwt()
+        access_token = jwt.jwt_encode_callback(user)
+        return jwt.auth_response_callback(access_token, user)
     except InvalidDataException as ex:
         return utils.json_abort({
             'message': ex.message,
